@@ -15,27 +15,29 @@ from pyagrum_extra import gum
 ot_odr_filename = os.path.join(".", "../OT_ODR.csv")
 ot_odr_df = pd.read_csv(ot_odr_filename,
                         sep=";")
+                        
+equipements_filename = os.path.join(".", "../EQUIPEMENTS.csv")
 equipements_df = pd.read_csv(ot_odr_filename,
                         sep=";")
+                        
+data_df = ot_odr_df.merge(equipements_df,how='right',on='EQU_ID')
 
 var_cat = ['ODR_LIBELLE', 'TYPE_TRAVAIL',
            'SYSTEM_N1', 'SYSTEM_N2', 'SYSTEM_N3', 
-           'SIG_ORGANE', 'SIG_CONTEXTE', 'SIG_OBS', 'LIGNE']
+           'SIG_ORGANE', 'SIG_CONTEXTE', 'SIG_OBS', 'LIGNE','MODELE','MOTEUR']
+           
 for var in var_cat:
     data_df[var] = data_df[var].astype('category')
 
-equipements_filename = os.path.join(".", "../EQUIPEMENTS.csv")
-data_df = df_OT.merge(df_equipe,how='right',on='EQU_ID')
 
 # Configuration du modèle
-model_name = "dIAg"
+model_name = "Outil de diagnostic"
 var_features = ["SIG_ORGANE", "SIG_OBS"] # Variables explicatives
 var_targets = ["SYSTEM_N1", "SYSTEM_N2"] # Variables à expliquer
-arcs = [("SYSTEM_N1", "SIG_OBS"),
-        ("SYSTEM_N1", "SIG_ORGANE"),
-        ("SYSTEM_N2", "SIG_OBS"),
-        ("SYSTEM_N2", "SIG_ORGANE"),
-        ("SYSTEM_N1", "SYSTEM_N2")]
+arcs = [("MODELE", "SIG_ORGANE"),
+        ("MODELE", "MOTEUR"),
+        ("SIG_ORGANE", "SYSTEM_N1"),
+        ("MOTEUR", "SYSTEM_N1")]
 
 # Création du modèle
 var_to_model = var_features + var_targets
