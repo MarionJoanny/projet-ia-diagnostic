@@ -12,9 +12,10 @@ from pyagrum_extra import gum
 # ============
 
 # Chargement et préparation des données
-ot_odr_filename = os.path.join(".", "OT_ODR.csv.bz2")
-data_df = pd.read_csv(ot_odr_filename,
-                        compression="bz2",
+ot_odr_filename = os.path.join(".", "../OT_ODR.csv")
+ot_odr_df = pd.read_csv(ot_odr_filename,
+                        sep=";")
+equipements_df = pd.read_csv(ot_odr_filename,
                         sep=";")
 
 var_cat = ['ODR_LIBELLE', 'TYPE_TRAVAIL',
@@ -23,6 +24,8 @@ var_cat = ['ODR_LIBELLE', 'TYPE_TRAVAIL',
 for var in var_cat:
     data_df[var] = data_df[var].astype('category')
 
+equipements_filename = os.path.join(".", "../EQUIPEMENTS.csv")
+data_df = df_OT.merge(df_equipe,how='right',on='EQU_ID')
 
 # Configuration du modèle
 model_name = "dIAg"
