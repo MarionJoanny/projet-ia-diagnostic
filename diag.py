@@ -7,6 +7,7 @@ from dash.dependencies import Input, Output
 import plotly.express as px
 from pyagrum_extra import gum
 #import ipdb
+import sklearn.model_selection as tts
 
 # Modélisation
 # ============
@@ -15,7 +16,8 @@ from pyagrum_extra import gum
 ot_odr_filename = os.path.join(".", "../OT_ODR.csv")
 ot_odr_df = pd.read_csv(ot_odr_filename,
                         sep=";")
-                        
+print(ot_odr_df.SIG_ORGANE.isna().sum())
+
 equipements_filename = os.path.join(".", "../EQUIPEMENTS.csv")
 equipements_df = pd.read_csv(equipements_filename,
                         sep=";")
@@ -30,6 +32,15 @@ var_cat = ['ODR_LIBELLE', 'TYPE_TRAVAIL',
 for var in var_cat:
     data_df[var] = data_df[var].astype('category')
 
+print(data_df.SIG_ORGANE.isna().sum())
+
+#########################
+# SEPARATION TEST TRAIN #
+#########################
+x_train, x_test, y_train, y_test = tts.train_test_split(data_df[['MODELE','MOTEUR','SIG_ORGANE']],data_df['SYSTEM_N1'], test_size=0.2, random_state=42)
+
+print(x_train.shape)
+print(x_test.shape)
 
 # Configuration du modèle
 model_name = "Outil de diagnostic"
@@ -37,8 +48,8 @@ var_features = ["SIG_ORGANE", "MODELE","MOTEUR"] # Variables explicatives
 var_targets = ["SYSTEM_N1"] # Variables à expliquer
 arcs = [("MODELE", "SIG_ORGANE"),
         ("MODELE", "MOTEUR"),
-        ("SIG_ORGANE", "SYSTEM_N1"),
-        ("MOTEUR", "SYSTEM_N1")]
+        ("SYSTEM_N1", "SIG_ORGANE"),
+        ("SYSTEM_N1", "MOTEUR")]
 
 # Création du modèle
 var_to_model = var_features + var_targets
@@ -60,7 +71,23 @@ for arc in arcs:
     bn.addArc(*arc)
 
 # Apprentissage des LPC
-bn.fit_bis(data_df, verbose_mode=True)
+
+x_train['SYSTEM_N1'] = y_train
+print(x_train.head(2))
+bn.fit_bis(x_train, verbose_mode=True)
+
+##############
+# EVALUATION #
+##############
+print(x_test.SIG_ORGANE.isna().sum())
+y_pred = bn.predict(x_test,'SYSTEM_N1')
+n = len(y_pred)
+acc = 0
+for k in range(n):
+    if y_pred[k] == y_test[k]:
+        acc += 1
+acc /= n
+print('accuracy : %s%', str(acc*100))
 
 # Création de l'application
 # =========================
