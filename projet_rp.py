@@ -61,6 +61,11 @@ df_light = df_OT[['SIG_ORGANE', 'SYSTEM_N1', 'EQU_ID']]
 
 df_light = df_light.merge(df_equipe, on='EQU_ID', how='left')
 
+df_light['SIG_ORGANE'] = df_light['SIG_ORGANE'].astype('category')
+df_light['SYSTEM_N1'] = df_light['SYSTEM_N1'].astype('category')
+df_light['MODELE'] = df_light['MODELE'].astype('category')
+df_light['MOTEUR'] = df_light['MOTEUR'].astype('category')
+
 print('####################################################')
 df_light.drop(columns=['CONSTRUCTEUR'], inplace=True)
 print(df_light.head(10))
@@ -73,9 +78,9 @@ x_train, x_test, y_train, y_test = tts.train_test_split(df_light[['MODELE','MOTE
 print(x_train.shape)
 print(x_test.shape)
 
-## RAPHAEL SPACE HERE
 
 print('####################################################')
+## RAPHAEL SPACE HERE
 
 import pyAgrum as gum
 
