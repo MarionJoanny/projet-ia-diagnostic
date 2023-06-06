@@ -95,11 +95,3 @@ bn=gum.fastBN("sys<-mot<-mdl->org->sys")
 
 print(bn)
 
-def compute_probas(variable):
-    probas = {}
-    probas.setdefault(0)
-    for _,val in variable:
-        probas[val] += 1
-
-comptage = compute_probas(df_OT['SIG_ORGANE'])
-print(comptage)
