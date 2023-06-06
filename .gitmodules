@@ -1,0 +1,3 @@
+[submodule "pyagrum-extra"]
+	path = pyagrum-extra
+	url = https://github.com/roland-donat/pyagrum-extra.git
