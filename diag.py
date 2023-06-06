@@ -6,33 +6,34 @@ from dash import html
 from dash.dependencies import Input, Output
 import plotly.express as px
 from pyagrum_extra import gum
+import numpy as np
 #import ipdb
 import sklearn.model_selection as tts
+from sklearn.metrics import confusion_matrix
 
 # Modélisation
 # ============
 
 # Chargement et préparation des données
 ot_odr_filename = os.path.join(".", "../OT_ODR.csv")
+#ot_odr_filename = os.path.join("OT_ODR.csv")
 ot_odr_df = pd.read_csv(ot_odr_filename,
                         sep=";")
-print(ot_odr_df.SIG_ORGANE.isna().sum())
-
+                        
 equipements_filename = os.path.join(".", "../EQUIPEMENTS.csv")
+#equipements_filename = os.path.join("EQUIPEMENTS.csv")
 equipements_df = pd.read_csv(equipements_filename,
                         sep=";")
                         
-data_df = ot_odr_df.merge(equipements_df,how='right',on='EQU_ID')
-print(data_df.head(5))
+df_sub_OT = ot_odr_df[['SIG_ORGANE', 'SYSTEM_N1', 'EQU_ID']]
 
-var_cat = ['ODR_LIBELLE', 'TYPE_TRAVAIL',
-           'SYSTEM_N1', 'SYSTEM_N2', 'SYSTEM_N3', 
-           'SIG_ORGANE', 'SIG_CONTEXTE', 'SIG_OBS', 'LIGNE','MODELE','MOTEUR']
+data_df = df_sub_OT.merge(equipements_df, on='EQU_ID', how='left')
+                        
+var_cat = ['SYSTEM_N1', 'SIG_ORGANE', 'EQU_ID','MODELE','MOTEUR']
            
 for var in var_cat:
     data_df[var] = data_df[var].astype('category')
 
-print(data_df.SIG_ORGANE.isna().sum())
 
 #########################
 # SEPARATION TEST TRAIN #
@@ -73,21 +74,32 @@ for arc in arcs:
 # Apprentissage des LPC
 
 x_train['SYSTEM_N1'] = y_train
-print(x_train.head(2))
+
 bn.fit_bis(x_train, verbose_mode=True)
 
 ##############
 # EVALUATION #
 ##############
-print(x_test.SIG_ORGANE.isna().sum())
+
 y_pred = bn.predict(x_test,'SYSTEM_N1')
 n = len(y_pred)
-acc = 0
-for k in range(n):
-    if y_pred[k] == y_test[k]:
-        acc += 1
+
+unique_pred, counts_pred = np.unique(y_pred, return_counts=True)
+print(unique_pred)
+print(counts_pred)
+print("****************************************")
+unique_test, counts_test = np.unique(y_test, return_counts=True)
+print(unique_test)
+print(counts_test)
+
+acc = (y_pred==y_test).sum()
 acc /= n
-print('accuracy : %s%', str(acc*100))
+print('accuracy : {}'.format(str(acc*100)))
+
+print(confusion_matrix(y_test, y_pred,labels=['DIVERS','EQUIPEMENT CHASSIS','EQUIPEMENT CLIMATIQUE',
+ 'EQUIPEMENT DE CARROSSERIE','EQUIPEMENT DE FREINAGE',
+ 'EQUIPEMENT DE MOTORISATION','EQUIPEMENT DE TRANSMISSION',
+ 'EQUIPEMENT ELECTRIQUE','EQUIPEMENT EMBARQUE','EQUIPEMENT PNEUMATIQUE']))
 
 # Création de l'application
 # =========================
