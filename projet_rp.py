@@ -60,13 +60,15 @@ df_OT.drop(columns=['KILOMETRAGE'], inplace=True)
 df_light = df_OT[['SIG_ORGANE', 'SYSTEM_N1', 'EQU_ID']]
 
 df_light = df_light.merge(df_equipe, on='EQU_ID', how='left')
+
 print('####################################################')
 df_light.drop(columns=['CONSTRUCTEUR'], inplace=True)
 print(df_light.head(10))
+print(df_light.columns)
 
+import sklearn.model_selection as tts
 
-import sklearn.model_selection.train_test_split as tts
-x_train, x_test, y_train, y_test = tts(df_light['MODELE','MOTEUR','SIG_ORGANE'],df_light['SYSTEM_N1'], test_size=0.2, random_state=42)
+x_train, x_test, y_train, y_test = tts.train_test_split(df_light[['MODELE','MOTEUR','SIG_ORGANE']],df_light['SYSTEM_N1'], test_size=0.2, random_state=42)
 
 print(x_train.shape)
 print(x_test.shape)
@@ -81,8 +83,8 @@ bn = gum.BayesNet()
 
 mot = bn.add(gum.LabelizedVariable('MOTEUR', 'le moteur', 56))
 mdl = bn.add(gum.LabelizedVariable('MODELE', 'le modele', 68))
-org = bn.add(gum.LabelizedVariable('SIG_ORGANE', 'l\'organe', len(df_OT['SIG_ORGANE'].cat.categories)))
-sys = bn.add(gum.LabelizedVariable('SYSTEM_N1', 'localisation', len(df_OT['SYSTEM_N1'].cat.categories)))
+org = bn.add(gum.LabelizedVariable('SIG_ORGANE', 'l\'organe', len(df_light['SIG_ORGANE'].cat.categories)))
+sys = bn.add(gum.LabelizedVariable('SYSTEM_N1', 'localisation', len(df_light['SYSTEM_N1'].cat.categories)))
 
 bn=gum.fastBN("sys<-mot<-mdl->org->sys")
 
