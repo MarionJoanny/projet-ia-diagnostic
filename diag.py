@@ -17,10 +17,11 @@ ot_odr_df = pd.read_csv(ot_odr_filename,
                         sep=";")
                         
 equipements_filename = os.path.join(".", "../EQUIPEMENTS.csv")
-equipements_df = pd.read_csv(ot_odr_filename,
+equipements_df = pd.read_csv(equipements_filename,
                         sep=";")
                         
 data_df = ot_odr_df.merge(equipements_df,how='right',on='EQU_ID')
+print(data_df.head(5))
 
 var_cat = ['ODR_LIBELLE', 'TYPE_TRAVAIL',
            'SYSTEM_N1', 'SYSTEM_N2', 'SYSTEM_N3', 
@@ -32,8 +33,8 @@ for var in var_cat:
 
 # Configuration du modèle
 model_name = "Outil de diagnostic"
-var_features = ["SIG_ORGANE", "SIG_OBS"] # Variables explicatives
-var_targets = ["SYSTEM_N1", "SYSTEM_N2"] # Variables à expliquer
+var_features = ["SIG_ORGANE", "MODELE","MOTEUR"] # Variables explicatives
+var_targets = ["SYSTEM_N1"] # Variables à expliquer
 arcs = [("MODELE", "SIG_ORGANE"),
         ("MODELE", "MOTEUR"),
         ("SIG_ORGANE", "SYSTEM_N1"),

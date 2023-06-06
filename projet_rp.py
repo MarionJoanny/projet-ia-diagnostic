@@ -82,9 +82,9 @@ print(x_test.shape)
 print('####################################################')
 ## RAPHAEL SPACE HERE
 
-import pyAgrum as gum
+import pyagrum_extra as gum
 
-bn = gum.BayesNet()
+bn = gum.BayesNet("diag")
 
 mot = bn.add(gum.LabelizedVariable('MOTEUR', 'le moteur', 56))
 mdl = bn.add(gum.LabelizedVariable('MODELE', 'le modele', 68))
@@ -94,4 +94,5 @@ sys = bn.add(gum.LabelizedVariable('SYSTEM_N1', 'localisation', len(df_light['SY
 bn=gum.fastBN("sys<-mot<-mdl->org->sys")
 
 print(bn)
+bn.fit_bis(df_light, verbose_mode=True)
 
