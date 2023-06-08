@@ -15,13 +15,13 @@ from sklearn.metrics import confusion_matrix
 # ============
 
 # Chargement et préparation des données
-ot_odr_filename = os.path.join(".", "../OT_ODR.csv")
-#ot_odr_filename = os.path.join("OT_ODR.csv")
+#ot_odr_filename = os.path.join(".", "../OT_ODR.csv")
+ot_odr_filename = os.path.join("OT_ODR.csv")
 ot_odr_df = pd.read_csv(ot_odr_filename,
                         sep=";")
                         
-equipements_filename = os.path.join(".", "../EQUIPEMENTS.csv")
-#equipements_filename = os.path.join("EQUIPEMENTS.csv")
+#equipements_filename = os.path.join(".", "../EQUIPEMENTS.csv")
+equipements_filename = os.path.join("EQUIPEMENTS.csv")
 equipements_df = pd.read_csv(equipements_filename,
                         sep=";")
                         
@@ -51,6 +51,13 @@ arcs = [("MODELE", "SIG_ORGANE"),
         ("MODELE", "MOTEUR"),
         ("SYSTEM_N1", "SIG_ORGANE"),
         ("SYSTEM_N1", "MOTEUR")]
+        
+# Dictionnaire pour les labels des champs
+label_dict = {
+    "SIG_ORGANE": "Système Organe",
+    "MODELE": "Modèle",
+    "MOTEUR": "Moteur"
+}
 
 # Création du modèle
 var_to_model = var_features + var_targets
@@ -106,10 +113,12 @@ bn.fit_bis(x_train, verbose_mode=True)
 app = dash.Dash(__name__)
 
 app.layout = html.Div([
-    html.H1(model_name),
+    html.H1("Outil de diagnostic"),
+    html.H2("Déclaration de panne"),
+    html.H2("Veuillez remplir les champs ci-dessous :"),
     html.Div([
         html.Div([
-            html.Label(var),
+            html.Label(label_dict[var]),
             dcc.Dropdown(
                 id=f'{var}-dropdown',
                 options=[{'label': i, 'value': i} for i in data_df[var].cat.categories],
@@ -123,8 +132,18 @@ app.layout = html.Div([
              style={'width': '65%', 'float': 'right', 'display': 'inline-block'}),
     html.Div([
         html.Div(id=f'{i}-div') for i in range(5)
-    ])
-])
+    ],style={'margin-top': '20%','margin-right':'20%','text-align':'right'}),
+        html.H1(id="element_change")
+],style={
+        'position': 'absolute',
+        'top': '0',
+        'background-image': 'url("/assets/pingouins.jpg")',
+        'background-size': 'cover',
+        'background-position': 'center',
+        'width': '100%',
+        'height': '100vh'
+    },
+)
 
 
 @app.callback(
@@ -165,6 +184,27 @@ def update_text(*var_features_values):
         pretty_string = str(column[1]) + '\t\t' + "{0:.0%}".format(val) + '\r\n' + pretty_string
         
     return pretty_string.split('\r\n')[:5]
+
+@app.callback(
+    Output("element_change", "children"),
+    [Input(f'{var}-dropdown', 'value') for var in var_features]
+)
+def update_element(*var_features_values):
+    bn_ie = gum.LazyPropagation(bn)
+
+    ev = {var: value for var, value in zip(var_features, var_features_values)}
+    bn_ie.setEvidence(ev)
+    bn_ie.makeInference()
+
+    for var in var_targets:
+        prob_target_var = bn_ie.posterior(var).topandas()
+
+    for column,val in prob_target_var.sort_values().items():
+        pretty_string = str(column[1]).lower()
+    full_string = "Vous devez changer l'élément suivant :" +" "+ pretty_string    
+    return full_string
+
+
 
 if __name__ == '__main__':
     app.run_server(debug=True)
