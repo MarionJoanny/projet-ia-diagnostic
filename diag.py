@@ -81,25 +81,25 @@ bn.fit_bis(x_train, verbose_mode=True)
 # EVALUATION #
 ##############
 
-y_pred = bn.predict(x_test,'SYSTEM_N1')
-n = len(y_pred)
+# y_pred = bn.predict(x_test,'SYSTEM_N1')
+# n = len(y_pred)
 
-unique_pred, counts_pred = np.unique(y_pred, return_counts=True)
-print(unique_pred)
-print(counts_pred)
-print("****************************************")
-unique_test, counts_test = np.unique(y_test, return_counts=True)
-print(unique_test)
-print(counts_test)
+# unique_pred, counts_pred = np.unique(y_pred, return_counts=True)
+# print(unique_pred)
+# print(counts_pred)
+# print("****************************************")
+# unique_test, counts_test = np.unique(y_test, return_counts=True)
+# print(unique_test)
+# print(counts_test)
 
-acc = (y_pred==y_test).sum()
-acc /= n
-print('accuracy : {}'.format(str(acc*100)))
+# acc = (y_pred==y_test).sum()
+# acc /= n
+# print('accuracy : {}'.format(str(acc*100)))
 
-print(confusion_matrix(y_test, y_pred,labels=['DIVERS','EQUIPEMENT CHASSIS','EQUIPEMENT CLIMATIQUE',
- 'EQUIPEMENT DE CARROSSERIE','EQUIPEMENT DE FREINAGE',
- 'EQUIPEMENT DE MOTORISATION','EQUIPEMENT DE TRANSMISSION',
- 'EQUIPEMENT ELECTRIQUE','EQUIPEMENT EMBARQUE','EQUIPEMENT PNEUMATIQUE']))
+# print(confusion_matrix(y_test, y_pred,labels=['DIVERS','EQUIPEMENT CHASSIS','EQUIPEMENT CLIMATIQUE',
+#  'EQUIPEMENT DE CARROSSERIE','EQUIPEMENT DE FREINAGE',
+#  'EQUIPEMENT DE MOTORISATION','EQUIPEMENT DE TRANSMISSION',
+#  'EQUIPEMENT ELECTRIQUE','EQUIPEMENT EMBARQUE','EQUIPEMENT PNEUMATIQUE']))
 
 # Création de l'application
 # =========================
@@ -116,12 +116,15 @@ app.layout = html.Div([
                 value=data_df[var].cat.categories[0]
             )
         ]) for var in var_features],
-             style={'width': '30%', 'display': 'inline-block'}),
+        style={'width': '30%', 'display': 'inline-block'}),
     html.Div([
             dcc.Graph(id=f'{var}-graph') 
         for var in var_targets],
-             style={'width': '65%', 'float': 'right', 'display': 'inline-block'})
+             style={'width': '65%', 'float': 'right', 'display': 'inline-block'}),
+    html.Div([
+        html.Div(id=f'{i}-div') for i in range(5)
     ])
+])
 
 
 @app.callback(
@@ -143,6 +146,25 @@ def update_graph(*var_features_values):
         
     return tuple(prob_target)
 
+@app.callback(
+    [Output(f'{i}-div', 'children') for i in range(5)],
+    [Input(f'{var}-dropdown', 'value') for var in var_features]
+)
+def update_text(*var_features_values):
+    bn_ie = gum.LazyPropagation(bn)
+
+    ev = {var: value for var, value in zip(var_features, var_features_values)}
+    bn_ie.setEvidence(ev)
+    bn_ie.makeInference()
+
+    for var in var_targets:
+        prob_target_var = bn_ie.posterior(var).topandas()
+
+    pretty_string = ''
+    for column,val in prob_target_var.sort_values().items():
+        pretty_string = str(column[1]) + '\t\t' + "{0:.0%}".format(val) + '\r\n' + pretty_string
+        
+    return pretty_string.split('\r\n')[:5]
 
 if __name__ == '__main__':
     app.run_server(debug=True)
