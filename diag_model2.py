@@ -1,0 +1,213 @@
+import pandas as pd
+import os
+import dash
+from dash import dcc
+from dash import html
+from dash.dependencies import Input, Output
+import plotly.express as px
+from pyagrum_extra import gum
+import numpy as np
+#import ipdb
+import sklearn.model_selection as tts
+from sklearn.metrics import confusion_matrix
+
+# Modélisation
+# ============
+
+# Chargement et préparation des données
+
+ot_odr_filename = "OT_ODR.csv"
+ot_odr_df = pd.read_csv(ot_odr_filename,
+                        sep=";")
+                        
+equipements_filename = "EQUIPEMENTS.csv"
+equipements_df = pd.read_csv(equipements_filename,
+                        sep=";")
+                        
+df_sub_OT = ot_odr_df[['SIG_ORGANE', 'SYSTEM_N2','SYSTEM_N1','SYSTEM_N3', 'EQU_ID']]
+
+data_df = df_sub_OT.merge(equipements_df, on='EQU_ID', how='left')
+
+                        
+var_cat = ['SYSTEM_N1','SYSTEM_N2','SYSTEM_N3','SIG_ORGANE', 'EQU_ID','MODELE','MOTEUR']
+           
+for var in var_cat:
+    data_df[var] = data_df[var].astype('category')
+
+# Dictionnaire pour les labels des champs
+label_dict = {
+    "SIG_ORGANE": "Système Organe",
+    "MODELE": "Modèle",
+    "MOTEUR": "Moteur",
+    "SYSTEM_N1": "Système N1",
+    "SYSTEM_N2" : "Système N2",
+    "SYSTEM_N3" : "Système N3"
+}
+
+#########################
+# SEPARATION TEST TRAIN #
+#########################
+x_train, x_test, y_train, y_test = tts.train_test_split(data_df[['MODELE','MOTEUR','SIG_ORGANE','SYSTEM_N1','SYSTEM_N2']],data_df['SYSTEM_N3'], test_size=0.2, random_state=42)
+
+print(x_train.shape)
+print(x_test.shape)
+
+# Configuration du modèle
+model_name = "Outil de diagnostic"
+var_features = ["SIG_ORGANE", "MODELE","MOTEUR","SYSTEM_N1","SYSTEM_N2"] # Variables explicatives
+var_targets = ["SYSTEM_N3"] # Variables à expliquer
+arcs = [("MODELE", "SIG_ORGANE"),
+        ("MODELE", "MOTEUR"),
+        ( "SYSTEM_N1","SIG_ORGANE"),
+        ("SYSTEM_N1","MOTEUR"),
+        ("SYSTEM_N1", "SYSTEM_N2"),
+        ("SYSTEM_N2", "SYSTEM_N3")]
+
+
+print(y_train.value_counts())
+
+# Création du modèle
+var_to_model = var_features + var_targets
+var_bn = {}
+for var in var_to_model:
+    nb_values = len(data_df[var].cat.categories)
+    var_bn[var] = gum.LabelizedVariable(var, var, nb_values)
+
+for var in var_bn:
+    for i, modalite in enumerate(data_df[var].cat.categories):
+        var_bn[var].changeLabel(i, modalite)
+
+bn = gum.BayesNet(model_name)
+
+for var in var_bn.values():
+    bn.add(var)
+
+for arc in arcs:
+    bn.addArc(*arc)
+
+# Apprentissage des LPC
+
+x_train['SYSTEM_N3'] = y_train
+
+bn.fit_bis(x_train, verbose_mode=True)
+#bn.fit(ot_odr_df, verbose_mode=True)
+#from pyagrum_extra import gum
+#ot_odr_df_test = ot_odr_df.iloc[-10000:]
+
+y_pred = bn.predict(x_test,'SYSTEM_N3')
+n = len(y_pred)
+
+
+#print((ot_odr_df_test['SYSTEM_N3'] == pred).mean())
+
+##############
+# EVALUATION #
+##############
+
+y_pred = bn.predict(x_test,'SYSTEM_N3')
+n = len(y_pred)
+
+acc = (y_pred==y_test).sum()
+acc /= n
+print('accuracy : {}'.format(str(acc*100)))
+
+# Création de l'application
+# =========================
+app = dash.Dash(__name__)
+
+app.layout = html.Div([
+    html.H1("Outil de diagnostic"),
+    html.H2("Déclaration de panne"),
+    html.H2("Veuillez remplir les champs ci-dessous :"),
+    html.Div([
+        html.Div([
+            html.Label(label_dict[var]),
+            dcc.Dropdown(
+                id=f'{var}-dropdown',
+                options=[{'label': i, 'value': i} for i in data_df[var].cat.categories],
+                value=data_df[var].cat.categories[0]
+            )
+        ]) for var in var_features],
+        style={'width': '30%', 'display': 'inline-block'}),
+    html.Div([
+            dcc.Graph(id=f'{var}-graph') 
+        for var in var_targets],
+             style={'width': '65%', 'float': 'right', 'display': 'inline-block'}),
+    html.Div([
+        html.Div(id=f'{i}-div') for i in range(5)
+    ],style={'margin-top': '20%','margin-right':'20%','text-align':'right'}),
+        html.H1(id="element_change")
+],style={
+        'position': 'absolute',
+        'top': '0',
+        'background-image': 'url("/assets/pingouins.jpg")',
+        'background-size': 'cover',
+        'background-position': 'center',
+        'width': '100%',
+        'height': '100vh'
+    },
+)
+
+
+@app.callback(
+    [Output(f'{var}-graph', 'figure') for var in var_targets],
+    [Input(f'{var}-dropdown', 'value') for var in var_features]
+)
+def update_graph(*var_features_values):
+    bn_ie = gum.LazyPropagation(bn)
+
+    ev = {var: value for var, value in zip(var_features, var_features_values)}
+    bn_ie.setEvidence(ev)
+    bn_ie.makeInference()
+
+    prob_target = []
+    for var in var_targets:
+        prob_target_var = bn_ie.posterior(var).topandas().droplevel(0)
+        prob_fig = px.bar(prob_target_var)
+        prob_target.append(prob_fig)
+        
+    return tuple(prob_target)
+
+@app.callback(
+    [Output(f'{i}-div', 'children') for i in range(5)],
+    [Input(f'{var}-dropdown', 'value') for var in var_features]
+)
+def update_text(*var_features_values):
+    bn_ie = gum.LazyPropagation(bn)
+
+    ev = {var: value for var, value in zip(var_features, var_features_values)}
+    bn_ie.setEvidence(ev)
+    bn_ie.makeInference()
+
+    for var in var_targets:
+        prob_target_var = bn_ie.posterior(var).topandas()
+
+    pretty_string = ''
+    for column,val in prob_target_var.sort_values().items():
+        pretty_string = str(column[1]) + '\t\t' + "{0:.0%}".format(val) + '\r\n' + pretty_string
+        
+    return pretty_string.split('\r\n')[:5]
+
+@app.callback(
+    Output("element_change", "children"),
+    [Input(f'{var}-dropdown', 'value') for var in var_features]
+)
+def update_element(*var_features_values):
+    bn_ie = gum.LazyPropagation(bn)
+
+    ev = {var: value for var, value in zip(var_features, var_features_values)}
+    bn_ie.setEvidence(ev)
+    bn_ie.makeInference()
+
+    for var in var_targets:
+        prob_target_var = bn_ie.posterior(var).topandas()
+
+    for column,val in prob_target_var.sort_values().items():
+        pretty_string = str(column[1]).lower()
+    full_string = "Vous devez changer l'élément suivant :" +" "+ pretty_string    
+    return full_string
+
+
+
+if __name__ == '__main__':
+    app.run_server(debug=True)
